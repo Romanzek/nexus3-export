@@ -106,6 +106,7 @@ public class DownloadRepository implements Runnable {
 		LOGGER.info("Downloaded {} assets on {} found", assetProcessed.get(), assetFound.get());
 	}
 
+    private static final AtomicLong assetsActive = new AtomicLong();
 
 	private class DownloadAssetsTask implements Runnable {
 
@@ -114,6 +115,7 @@ public class DownloadRepository implements Runnable {
 
 		public DownloadAssetsTask(String continuationToken) {
 			this.continuationToken = continuationToken;
+            assetsActive.incrementAndGet();
 		}
 
 
@@ -145,6 +147,10 @@ public class DownloadRepository implements Runnable {
 			assetFound.addAndGet(assets.getItems().size());
 			notifyProgress();
 			assets.getItems().forEach(item -> executorService.submit(new DownloadItemTask(item)));
+            if (assetsActive.decrementAndGet() == 0) {
+                executorService.shutdown();
+                LOGGER.info("Finished.");
+            }
 		}
 	}
 
@@ -164,7 +170,7 @@ public class DownloadRepository implements Runnable {
 			LOGGER.info("Downloading asset <{}>", item.getDownloadUrl());
 
 			try {
-				Path assetPath = downloadPath.resolve(item.getPath());
+				Path assetPath = downloadPath.resolve(Paths.get(".", item.getPath()).normalize());
 				Files.createDirectories(assetPath.getParent());
 				final URI downloadUri = URI.create(item.getDownloadUrl());
 				int tryCount = 1;
