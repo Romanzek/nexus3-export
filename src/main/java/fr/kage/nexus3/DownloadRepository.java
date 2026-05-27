@@ -149,6 +149,11 @@ public class DownloadRepository implements Runnable {
 			assets.getItems().forEach(item -> executorService.submit(new DownloadItemTask(item)));
             if (assetsActive.decrementAndGet() == 0) {
                 executorService.shutdown();
+                try {
+                    executorService.awaitTermination(1, TimeUnit.DAYS);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 LOGGER.info("Finished.");
             }
 		}
@@ -189,7 +194,12 @@ public class DownloadRepository implements Runnable {
 			}
 			catch (IOException e) {
 				LOGGER.error("Failed to download asset <" + item.getDownloadUrl() + ">", e);
+                reportError("Failed to download asset <" + item.getDownloadUrl() + ">: " + e.getMessage());
 			}
 		}
 	}
+
+    private void reportError(String s) {
+        System.err.println(s);
+    }
 }
